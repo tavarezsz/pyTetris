@@ -26,8 +26,13 @@ o firewall nem o roteador.
 
 Cancelar ou sair fecha os sockets e o servidor criado por aquela sessão.
 Uma desconexão durante o jogo encerra a partida do outro jogador.
-Após o resultado, use Esc para voltar e criar uma nova sessão. R fica
-reservado ao modo local, para não reiniciar somente um jogador no multiplayer.
+Após o resultado, pressione R para confirmar uma revanche. O painel mostra
+quem está aguardando e avisa quando o adversário quer jogar novamente.
+O servidor espera os dois jogadores confirmarem, gera uma nova seed e envia
+`inicio` aos dois, mantendo as mesmas conexões. Tabuleiros, pontos, ataques
+pendentes e animações são zerados. Confirmações repetidas contam uma única vez.
+Cada partida recebe um número; eventos atrasados da anterior são ignorados.
+Esc volta ao menu e encerra a sessão, inclusive durante a espera por revanche.
 
 ## Jogo local e sequência por seed
 
@@ -52,6 +57,13 @@ de lixo é independente da sequência das peças.
 uma seed e encaminha os ataques e o resultado. `ConexaoCliente`, em
 `sockets/client_tcp.py`, conecta em segundo plano e possui filas de entrada
 e saída. A thread de rede não chama o Pygame nem modifica o tabuleiro.
+
+No multiplayer, o painel à direita mostra uma miniatura do tabuleiro do
+adversário e seus pontos. A mensagem `estado_tabuleiro` envia uma cópia dos
+blocos fixos após cada jogada resolvida: remoção de linhas, pontuação e lixo
+pendente. Também são enviados os estados inicial e final. A peça em movimento
+não é transmitida. O servidor valida o formato e encaminha o estado ao outro
+cliente, que substitui sua miniatura pela atualização mais recente.
 
 As mensagens são JSON em UTF-8 terminadas por uma quebra de linha. O leitor
 acumula os dados até receber uma mensagem inteira. A espera pela rede pode

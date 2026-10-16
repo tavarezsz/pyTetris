@@ -3,7 +3,9 @@ from queue import Empty, Queue
 from threading import Event, Thread
 
 from gerador_pecas import gerar_seed
-from sockets.protocolo import enviar_mensagem, LeitorMensagens, receber_mensagem
+from sockets.protocolo import (
+    enviar_mensagem, LeitorMensagens, receber_mensagem, validar_estado_tabuleiro,
+)
 
 HOST = "0.0.0.0"
 PORT = 6000
@@ -60,8 +62,9 @@ class ServidorSessao:
                 return
 
             seed = gerar_seed()
+            partida = 1
             for cliente in self.clientes:
-                enviar_mensagem(cliente, {"tipo": "inicio", "seed": seed})
+                enviar_mensagem(cliente, {"tipo": "inicio", "seed": seed, "partida": partida})
             eventos = Queue()
             for indice, cliente in enumerate(self.clientes):
                 thread = Thread(target=self._receber, args=(indice, cliente, eventos),
@@ -70,6 +73,7 @@ class ServidorSessao:
                 recebimentos.append(thread)
 
             finalizada = False
+            pedidos_reinicio = set()
             # Só esta thread envia mensagens, evitando escritas concorrentes.
             while not self.parar.is_set():
                 try:
@@ -81,6 +85,37 @@ class ServidorSessao:
                 if tipo == "desconectado":
                     enviar_mensagem(adversario, {"tipo": "adversario_desconectado"})
                     return
+                # Eventos atrasados de uma partida anterior não afetam a revanche.
+                if mensagem.get("partida", partida) != partida:
+                    continue
+                if tipo == "reinicio":
+                    if not finalizada or origem in pedidos_reinicio:
+                        continue
+                    pedidos_reinicio.add(origem)
+                    if len(pedidos_reinicio) == 2:
+                        seed = gerar_seed()
+                        partida += 1
+                        finalizada = False
+                        pedidos_reinicio.clear()
+                        for cliente in self.clientes:
+                            enviar_mensagem(cliente, {
+                                "tipo": "inicio", "seed": seed, "partida": partida,
+                            })
+                    else:
+                        for indice, cliente in enumerate(self.clientes):
+                            enviar_mensagem(cliente, {
+                                "tipo": "revanche_pendente", "partida": partida,
+                                "voce_confirmou": indice in pedidos_reinicio,
+                            })
+                    continue
+                if tipo == "estado_tabuleiro":
+                    if validar_estado_tabuleiro(mensagem):
+                        enviar_mensagem(adversario, {
+                            "tipo": "estado_tabuleiro", "tabuleiro": mensagem["tabuleiro"],
+                            "pontos": mensagem["pontos"],
+                        })
+                    # O estado final também pode chegar depois do resultado.
+                    continue
                 if finalizada:
                     continue
                 if tipo == "linhas_completadas":

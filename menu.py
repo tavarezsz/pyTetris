@@ -58,9 +58,8 @@ def desenhar_menu(tela, estado, host, porta, foco, status="", erro=""):
         campos[chave] = ret
 
     texto("TETRIS DUEL", 32, 42, (100, 230, 160), titulo)
-    texto("Dois jogadores. Uma mesma sequência.", 32, 96, (170, 180, 200), pequena)
     if estado == "inicio":
-        paragrafo("Crie uma sessão neste computador ou entre na sessão de um amigo.", 170,
+        paragrafo("Crie uma sessão neste computador ou entre na sessão de um amigo.\n Somente em LAN ou VPN ", 170,
                   (200, 205, 220))
         botao("criar", "Criar sessão", 260, True)
         botao("entrar", "Entrar em sessão", 326)
@@ -83,9 +82,6 @@ def desenhar_menu(tela, estado, host, porta, foco, status="", erro=""):
         paragrafo("O jogo começa automaticamente quando os dois jogadores estiverem conectados.",
                   334, (170, 180, 200))
         botao("voltar", "Cancelar", 470)
-    if estado == "inicio":
-        paragrafo("Na internet, o host precisa liberar a porta no firewall e no roteador.",
-                  490, (145, 155, 175))
     return botoes, campos
 
 

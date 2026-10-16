@@ -7,6 +7,23 @@ from threading import Event
 from typing import TextIO
 
 
+def validar_estado_tabuleiro(mensagem: dict) -> bool:
+    """Verifica o formato do estado que será desenhado pelo adversário."""
+    grade = mensagem.get("tabuleiro")
+    pontos = mensagem.get("pontos")
+    tipos = {"I", "O", "T", "S", "Z", "J", "L", "LIXO"}
+    return (
+        type(pontos) is int and pontos >= 0
+        and isinstance(grade, list) and len(grade) == 20
+        and all(
+            isinstance(linha, list) and len(linha) == 10
+            and all(celula is None or (isinstance(celula, str) and celula in tipos)
+                    for celula in linha)
+            for linha in grade
+        )
+    )
+
+
 def enviar_mensagem(conexao: socket.socket, mensagem: dict) -> None:
     dados = json.dumps(mensagem, ensure_ascii=False) + "\n"
     conexao.sendall(dados.encode("utf-8"))
