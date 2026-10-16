@@ -63,6 +63,20 @@ def desenhar_menu(tela, estado, host, porta, foco, status="", erro=""):
                   (200, 205, 220))
         botao("criar", "Criar sessão", 260, True)
         botao("entrar", "Entrar em sessão", 326)
+        painel = pygame.Rect(32, 398, 396, 184)
+        pygame.draw.rect(tela, (25, 28, 40), painel, border_radius=10)
+        texto("CONTROLES", 48, 414, (100, 230, 160), pequena)
+        controles = (
+            ("Esq. / Dir.", "Mover a peça"),
+            ("Baixo", "Acelerar a queda"),
+            ("Z", "Girar a peça"),
+            ("R", "Pedir revanche após o fim"),
+            ("Esc", "Voltar ao menu"),
+        )
+        for indice, (tecla, descricao) in enumerate(controles):
+            y = 442 + indice * 26
+            texto(tecla, 48, y, (235, 235, 245), pequena)
+            texto(descricao, 174, y, (170, 180, 200), pequena)
     elif estado in ("criar", "entrar"):
         texto("Criar sessão" if estado == "criar" else "Entrar em sessão", 32, 150)
         if estado == "entrar":
