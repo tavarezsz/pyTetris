@@ -18,12 +18,6 @@ Esc cancela a espera ou volta ao menu durante a partida.
 Para testar tudo no mesmo computador, abra `python main.py` duas vezes:
 crie a sessão em uma janela e entre com `127.0.0.1` na outra.
 
-Na mesma rede, o convidado usa o IP local do host. Em redes diferentes,
-usa o IP público ou domínio acessível: o host precisa liberar a porta TCP
-no firewall e encaminhá-la no roteador. Sob CGNAT, pode ser necessária uma
-rede virtual privada ou um servidor com acesso público. O menu não altera
-o firewall nem o roteador.
-
 Cancelar ou sair fecha os sockets e o servidor criado por aquela sessão.
 Uma desconexão durante o jogo encerra a partida do outro jogador.
 Após o resultado, pressione R para confirmar uma revanche. O painel mostra
@@ -58,6 +52,8 @@ uma seed e encaminha os ataques e o resultado. `ConexaoCliente`, em
 `sockets/client_tcp.py`, conecta em segundo plano e possui filas de entrada
 e saída. A thread de rede não chama o Pygame nem modifica o tabuleiro.
 
+As definições de comunicação podem ser encontrados em `sockets/protocolo.py`
+
 No multiplayer, o painel à direita mostra uma miniatura do tabuleiro do
 adversário e seus pontos. A mensagem `estado_tabuleiro` envia uma cópia dos
 blocos fixos após cada jogada resolvida: remoção de linhas, pontuação e lixo
@@ -69,19 +65,6 @@ As mensagens são JSON em UTF-8 terminadas por uma quebra de linha. O leitor
 acumula os dados até receber uma mensagem inteira. A espera pela rede pode
 ser interrompida para cancelar a sessão sem travar a interface.
 
-Também é possível executar manualmente, a partir da raiz do projeto:
-
-```powershell
-python -m sockets.server_tcp
-python -m sockets.client_tcp --host 127.0.0.1 --port 6000
-```
-
-Nesse caso, abra dois clientes para o servidor iniciar a partida. No PyCharm,
-use Module name para esses comandos, com Working directory na raiz do projeto.
-Para o menu, execute `main.py` normalmente, com o interpretador da `.venv`.
-
-## Testes
-
-```powershell
-python -m unittest discover -v
-```
+Ambos os clientes possuem 3 threads, envio de mensagem, recebimento de mensagem, e a 
+thread principal onde o pygame roda, dessa forma a comunicação de rede nunca trava a thread principal e vice versa, salvo 
+desconexão
