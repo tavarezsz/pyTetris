@@ -198,7 +198,7 @@ def main():
                                 ip = socket.gethostbyname(socket.gethostname())
                             except OSError:
                                 ip = "consulte o IP deste computador"
-                            status = f"Sessão criada! IP local detectado: {ip}. Porta: {porta}. Aguardando o convidado..."
+                            status = f"Sessão criada! Envie seu endereço IP para o adversário. Aguardando o convidado..."
                         else:
                             status = "Conectado! Aguardando o outro jogador..."
                     elif mensagem["tipo"] == "inicio":

@@ -6,7 +6,7 @@ from queue import Empty, Queue
 import pygame
 
 from gerador_pecas import GeradorPecas, gerar_seed
-from pecas import Peca
+from pecas import FORMATOS, Peca
 from tabuleiro import Tabuleiro
 from sockets.protocolo import validar_estado_tabuleiro
 
@@ -109,6 +109,31 @@ def desenhar_adversario(tela, grade, pontos, origem_x, fonte, pequena, recebido)
     tela.blit(pequena.render(legenda, True, (155, 165, 185)), (origem_x + 22, 482))
 
 
+def desenhar_previa(tela, tipo: str, origem_x: int, fonte, multiplayer: bool):
+    """Mostra a próxima peça na orientação inicial, centralizada pelo formato."""
+    if not multiplayer:
+        pygame.draw.rect(tela, (22, 24, 34),
+                         (origem_x, 0, LARGURA_PAINEL_ADVERSARIO, tela.get_height()))
+        pygame.draw.line(tela, (65, 75, 95), (origem_x, 0), (origem_x, tela.get_height()))
+    painel = pygame.Rect(origem_x + 22, 516 if multiplayer else 100, 180, 128)
+    pygame.draw.rect(tela, (29, 33, 46), painel, border_radius=10)
+    titulo = fonte.render("PRÓXIMA PEÇA", True, (100, 230, 160))
+    tela.blit(titulo, titulo.get_rect(midtop=(painel.centerx, painel.top + 14)))
+
+    formato = FORMATOS[tipo]
+    min_x = min(x for x, _ in formato)
+    min_y = min(y for _, y in formato)
+    tamanho = 22
+    largura = (max(x for x, _ in formato) - min_x + 1) * tamanho
+    altura = (max(y for _, y in formato) - min_y + 1) * tamanho
+    inicio_x = painel.centerx - largura // 2
+    inicio_y = painel.top + 82 - altura // 2
+    for x, y in formato:
+        ret = pygame.Rect(inicio_x + (x - min_x) * tamanho,
+                          inicio_y + (y - min_y) * tamanho, tamanho, tamanho)
+        pygame.draw.rect(tela, CORES[tipo], ret.inflate(-2, -2))
+
+
 def desenhar_resultado(tela, venceu: bool, fonte_titulo, fonte_detalhe,
                       instrucao="R para reiniciar", desconectado=False, detalhe_revanche=None):
     """Painel persistente no centro da tela, sobre o tabuleiro escurecido."""
@@ -155,7 +180,7 @@ def main(seed: int | None = None, fila_entrada: Queue | None = None,
     tabuleiro = Tabuleiro()
     largura_tabuleiro = tabuleiro.largura * TAMANHO_CELULA
     tela = pygame.display.set_mode((
-        largura_tabuleiro + (LARGURA_PAINEL_ADVERSARIO if multiplayer else 0),
+        largura_tabuleiro + LARGURA_PAINEL_ADVERSARIO,
         tabuleiro.altura * TAMANHO_CELULA + ALTURA_CABECALHO,
     ))
     area_tabuleiro = tela.subsurface(pygame.Rect(
@@ -364,6 +389,8 @@ def main(seed: int | None = None, fila_entrada: Queue | None = None,
                 desenhar_adversario(tela, tabuleiro_adversario, pontos_adversario,
                                     largura_tabuleiro, fonte_placar, fonte_aviso,
                                     estado_adversario_recebido)
+            desenhar_previa(tela, gerador.ver_proximo_tipo(), largura_tabuleiro,
+                            fonte_aviso, multiplayer)
             if fim_de_jogo:
                 detalhe_revanche = None
                 instrucao = "R para reiniciar"
