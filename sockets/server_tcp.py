@@ -17,6 +17,7 @@ class ServidorSessao:
         self.host = host
         self.porta = porta
         self.parar = Event()
+        self.encerrado = Event()
         self.clientes = []
         self.listener = None
         self.thread = Thread(target=self._executar, name="servidor-sessao", daemon=True)
@@ -130,9 +131,12 @@ class ServidorSessao:
             pass
         finally:
             self.parar.set()
-            self._fechar_sockets()
             for thread in recebimentos:
                 thread.join(timeout=1)
+            try:
+                self._fechar_sockets()
+            finally:
+                self.encerrado.set()
 
     def _fechar_sockets(self):
         if self.listener is not None:
@@ -144,11 +148,15 @@ class ServidorSessao:
                 pass
             cliente.close()
 
-    def encerrar(self):
+    def encerrar(self, aguardar=True):
         self.parar.set()
-        self._fechar_sockets()
+        # O accept e a fila já têm timeout. A thread sai e fecha seus sockets,
+        # sem competir com a interface durante operações de rede.
         if self.thread.ident is not None:
-            self.thread.join(timeout=3)
+            if aguardar:
+                self.thread.join(timeout=3)
+        else:
+            self.encerrado.set()
 
 
 def main():

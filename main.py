@@ -413,7 +413,10 @@ def main(seed: int | None = None, fila_entrada: Queue | None = None,
 
             pygame.display.flip()
     finally:
-        pygame.quit()
+        # O menu reutiliza o Pygame na mesma thread; só fechar a aplicação
+        # deve desligar os subsistemas de vídeo e áudio.
+        if not voltar_menu:
+            pygame.quit()
     return voltar_menu
 
 

@@ -8,11 +8,11 @@ from sockets.protocolo import LeitorMensagens, receber_mensagem, enviar_mensagem
 HOST = "127.0.0.1"
 PORT = 6000
 
-def enviar_eventos(conexao: socket.socket, fila_saida: Queue):
+def enviar_eventos(conexao: socket.socket, fila_saida: Queue, parar: Event | None = None):
     while True:
         mensagem = fila_saida.get()
 
-        if mensagem is None:
+        if mensagem is None or (parar is not None and parar.is_set()):
             return
         try:
             enviar_mensagem(conexao, mensagem)
@@ -41,6 +41,7 @@ class ConexaoCliente:
         self.fila_entrada = Queue()
         self.fila_saida = Queue()
         self.parar = Event()
+        self.encerrado = Event()
         self.conexao = None
         self.thread = Thread(target=self._executar, name="cliente-rede", daemon=True)
 
@@ -49,31 +50,32 @@ class ConexaoCliente:
 
     def _executar(self):
         envio = None
+        conexao = None
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conexao:
-                self.conexao = conexao
-                if self.parar.is_set():
-                    return
-                conexao.settimeout(4)
-                conexao.connect((self.host, self.porta))
-                if self.parar.is_set():
-                    return
-                conexao.settimeout(2)
-                leitor = LeitorMensagens(conexao)
-                leitor.parar = self.parar
-                self.fila_entrada.put({"tipo": "aguardando"})
-                inicio = receber_mensagem(leitor)
-                if self.parar.is_set():
-                    return
-                if inicio is None or inicio.get("tipo") != "inicio":
-                    raise ValueError("O servidor não enviou o início da partida.")
-                if type(inicio.get("seed")) is not int:
-                    raise ValueError("A seed recebida deve ser um inteiro.")
-                envio = Thread(target=enviar_eventos, args=(conexao, self.fila_saida),
-                               name="cliente-envio", daemon=True)
-                envio.start()
-                self.fila_entrada.put(inicio)
-                receber_eventos(leitor, self.fila_entrada)
+            conexao = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.conexao = conexao
+            if self.parar.is_set():
+                return
+            conexao.settimeout(4)
+            conexao.connect((self.host, self.porta))
+            if self.parar.is_set():
+                return
+            conexao.settimeout(2)
+            leitor = LeitorMensagens(conexao)
+            leitor.parar = self.parar
+            self.fila_entrada.put({"tipo": "aguardando"})
+            inicio = receber_mensagem(leitor)
+            if self.parar.is_set():
+                return
+            if inicio is None or inicio.get("tipo") != "inicio":
+                raise ValueError("O servidor não enviou o início da partida.")
+            if type(inicio.get("seed")) is not int:
+                raise ValueError("A seed recebida deve ser um inteiro.")
+            envio = Thread(target=enviar_eventos, args=(conexao, self.fila_saida, self.parar),
+                           name="cliente-envio", daemon=True)
+            envio.start()
+            self.fila_entrada.put(inicio)
+            receber_eventos(leitor, self.fila_entrada)
         except (OSError, ValueError) as erro:
             if not self.parar.is_set():
                 self.fila_entrada.put({"tipo": "erro_rede", "texto": str(erro)})
@@ -82,18 +84,22 @@ class ConexaoCliente:
             self.fila_saida.put(None)
             if envio is not None:
                 envio.join(timeout=3)
+            try:
+                if conexao is not None:
+                    conexao.close()
+            finally:
+                self.encerrado.set()
 
-    def encerrar(self):
+    def encerrar(self, aguardar=True):
         self.parar.set()
         self.fila_saida.put(None)
-        if self.conexao is not None:
-            try:
-                self.conexao.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            self.conexao.close()
+        # A thread proprietária fecha o socket depois de parar o envio.
+        # Fechá-lo aqui pode disputar uma operação de rede ainda em andamento.
         if self.thread.ident is not None:
-            self.thread.join(timeout=0.5)
+            if aguardar:
+                self.thread.join(timeout=5)
+        else:
+            self.encerrado.set()
 
 
 def main(host=HOST, porta=PORT):

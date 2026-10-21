@@ -90,6 +90,9 @@ def desenhar_menu(tela, estado, host, porta, foco, status="", erro=""):
             paragrafo(erro, 368, (255, 140, 140))
         botao("conectar", "Criar e aguardar" if estado == "criar" else "Conectar", 444, True)
         botao("voltar", "Voltar", 510)
+    elif estado == "encerrando":
+        texto("Voltando ao menu", 32, 170)
+        paragrafo("Encerrando a conexão da sessão...", 230, (200, 205, 220))
     else:
         texto("Aguardando a partida", 32, 170)
         paragrafo(status, 230, (200, 205, 220))
@@ -110,20 +113,27 @@ def main():
     estado, host, porta, foco = "inicio", "", "6000", "host"
     status = erro = ""
     cliente = servidor = None
+    encerrando = []
+    destino_apos_encerramento = "inicio"
     executando = True
 
     def encerrar_sessao():
         nonlocal cliente, servidor
         if cliente is not None:
-            cliente.encerrar()
+            cliente.encerrar(aguardar=False)
+            encerrando.append(cliente)
             cliente = None
         if servidor is not None:
-            servidor.encerrar()
+            servidor.encerrar(aguardar=False)
+            encerrando.append(servidor)
             servidor = None
 
     try:
         while executando:
             relogio.tick(60)
+            if estado == "encerrando" and all(sessao.encerrado.is_set() for sessao in encerrando):
+                encerrando.clear()
+                estado = destino_apos_encerramento
             botoes, campos = desenhar_menu(tela, estado, host, porta, foco, status, erro)
             acao = None
             for evento in pygame.event.get():
@@ -138,7 +148,7 @@ def main():
                             acao = nome
                 elif evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
-                        if estado == "inicio":
+                        if estado in ("inicio", "encerrando"):
                             executando = False
                         else:
                             acao = "voltar"
@@ -166,7 +176,8 @@ def main():
                 erro = ""
             elif acao == "voltar":
                 encerrar_sessao()
-                estado, erro = "inicio", ""
+                destino_apos_encerramento = "inicio"
+                estado, erro = "encerrando", ""
             elif acao == "conectar":
                 try:
                     numero_porta = int(porta)
@@ -183,7 +194,9 @@ def main():
                     status = f"Conectando a {cliente.host}:{numero_porta}..."
                     estado = "aguardando"
                 except (OSError, ValueError) as falha:
+                    destino_apos_encerramento = estado
                     encerrar_sessao()
+                    estado = "encerrando"
                     erro = f"Não foi possível abrir a sessão: {falha}"
 
             if estado == "aguardando" and cliente is not None:
@@ -209,16 +222,19 @@ def main():
                         if not voltar:
                             executando = False
                             break
-                        pygame.init()
+                        if not pygame.get_init():
+                            pygame.init()
                         tela = pygame.display.set_mode(TAMANHO_MENU)
                         pygame.display.set_caption("Tetris | Sessões")
                         pygame.key.set_repeat(300, 35)
-                        estado, erro = "inicio", ""
+                        destino_apos_encerramento = "inicio"
+                        estado, erro = "encerrando", ""
                         break
                     elif mensagem["tipo"] in ("erro_rede", "conexao_encerrada"):
                         criando = servidor is not None
                         encerrar_sessao()
-                        estado = "criar" if criando else "entrar"
+                        destino_apos_encerramento = "criar" if criando else "entrar"
+                        estado = "encerrando"
                         erro = mensagem.get("texto", "O servidor encerrou a conexão.")
                         break
             if executando:
