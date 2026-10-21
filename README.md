@@ -1,5 +1,6 @@
 # Tetris com pygame-ce
 
+Para instalar as bibliotecas necessárias: `pip install -r requirements.txt`
 Execute `python main.py` para abrir o menu multiplayer.
 
 ## Criar e entrar em sessões
